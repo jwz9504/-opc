@@ -64,6 +64,23 @@ class MeetingService:
         self._save_state(new_state)
         return self.view(meeting_id)
 
+    def cancel(self, meeting_id: str, actor_id: str) -> MeetingView:
+        self._authorized(meeting_id, actor_id)
+        state = self.checkpointer.get(meeting_id) or self.repository.load_state(meeting_id)
+        if state is None:
+            raise KeyError(meeting_id)
+        cancelled = state.model_copy(update={"phase": "cancelled", "cancelled": True, "human_pending": False})
+        self._save_state(cancelled)
+        self.audit.append(meeting_id, actor_id, "meeting_cancelled")
+        return self.view(meeting_id)
+
+    def report(self, meeting_id: str, actor_id: str) -> dict[str, object]:
+        self._authorized(meeting_id, actor_id)
+        state = self.checkpointer.get(meeting_id) or self.repository.load_state(meeting_id)
+        if state is None:
+            raise KeyError(meeting_id)
+        return {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft"}
+
     def audit_events(self, meeting_id: str, actor_id: str) -> list[dict[str, object]]:
         self._authorized(meeting_id, actor_id)
         return self.audit.for_meeting(meeting_id)
