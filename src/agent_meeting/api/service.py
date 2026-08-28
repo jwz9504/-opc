@@ -6,6 +6,7 @@ from hashlib import sha256
 from ..graph import HumanInterrupt, StubWorkflow
 from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
+from ..services.report_repository import ReportRepository
 from ..services.sqlite_repository import SQLiteRepository
 from ..state import MeetingState
 from .dto import MeetingCreate, MeetingView, ResumeRequest
@@ -24,6 +25,7 @@ class MeetingService:
         self.checkpointer = InMemoryCheckpointer()
         self.workflow = StubWorkflow(self.checkpointer)
         self.audit = AuditRepository(self.repository.db)
+        self.reports = ReportRepository(self.repository.db)
         self.meetings: dict[str, Meeting] ={}
         self.requests: dict[str, str] ={}
 
@@ -79,7 +81,9 @@ class MeetingService:
         state = self.checkpointer.get(meeting_id) or self.repository.load_state(meeting_id)
         if state is None:
             raise KeyError(meeting_id)
-        return {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft"}
+        data: dict[str, object] = {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft"}
+        self.reports.save(meeting_id, data)
+        return data
 
     def audit_events(self, meeting_id: str, actor_id: str) -> list[dict[str, object]]:
         self._authorized(meeting_id, actor_id)
