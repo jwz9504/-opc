@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 
+from langgraph.errors import GraphInterrupt
+
 from ..langgraph_workflow import build_sqlite_graph, run_graph
 from ..services.artifact_repository import ArtifactRepository
 from ..services.audit_repository import AuditRepository
@@ -53,7 +55,7 @@ class MeetingService:
             result = run_graph(self.graph, meeting_id)
             updated = MeetingState(thread_id=meeting_id, phase=result.get("phase", "human_confirm_governance"), human_pending=result.get("human_pending", True), summaries=result.get("summaries",{}))
             self._save_state(updated)
-        except (KeyError, RuntimeError):
+        except (GraphInterrupt, KeyError, RuntimeError):
             restored = self.repository.load_state(meeting_id)
             if restored is None:
                 raise
