@@ -103,6 +103,7 @@ class MeetingService:
             "行动项": "待人工指定",
             "证据与引用附录": "待 Grounding 校验完成",
             "会议审计摘要": "可通过审计接口查询",
+            "结构化产物": self.artifacts.list_for_meeting(meeting_id),
         }
         self.reports.save(meeting_id, data)
         self.audit.append(meeting_id, actor_id, "report_generated", {"status": data["status"]})
