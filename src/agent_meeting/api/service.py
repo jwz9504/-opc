@@ -42,6 +42,7 @@ class MeetingService:
         self.requests[request_key] = meeting_id
         self.repository.save_meeting(meeting_id, meeting.owner_id, meeting.question, meeting.resume_token, request_key)
         self._save_state(MeetingState(thread_id=meeting_id))
+        self.artifacts.save(f"{meeting_id}:meeting", "meeting", {"question": payload.question, "owner_id": payload.owner_id})
         self.audit.append(meeting_id, payload.owner_id, "meeting_created")
         return self.view(meeting_id)
 
