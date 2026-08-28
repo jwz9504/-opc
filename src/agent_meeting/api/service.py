@@ -5,6 +5,7 @@ from hashlib import sha256
 
 from ..graph import HumanInterrupt, StubWorkflow
 from ..services.checkpoint import InMemoryCheckpointer
+from ..services.sqlite_repository import SQLiteRepository
 from ..state import MeetingState
 from .dto import MeetingCreate, MeetingView, ResumeRequest
 
@@ -16,28 +17,31 @@ class Meeting:
     question: str
     resume_token: str
 
-
 class MeetingService:
-    def __init__(self) -> None:
+    def __init__(self, repository: SQLiteRepository | None = None) -> None:
+        self.repository = repository or SQLiteRepository()
         self.checkpointer = InMemoryCheckpointer()
         self.workflow = StubWorkflow(self.checkpointer)
         self.meetings: dict[str, Meeting] ={}
         self.requests: dict[str, str] ={}
 
     def create(self, payload: MeetingCreate, request_key: str) -> MeetingView:
-        if request_key in self.requests:
-            return self.view(self.requests[request_key])
+        existing = self.repository.get_by_request(request_key)
+        if existing:
+            return self.view(existing)
         meeting_id = sha256(f"{payload.owner_id + payload.question}".encode()).hexdigest()[:16]
         token = sha256(f"{meeting_id}:resume".encode()).hexdigest()
-        self.meetings[meeting_id] = Meeting(meeting_id, payload.owner_id, payload.question, token)
+        meeting = Meeting(meeting_id, payload.owner_id, payload.question, token)
+        self.meetings[meeting_id] = meeting
         self.requests[request_key] = meeting_id
-        self.checkpointer.put(MeetingState(thread_id=meeting_id))
+        self.repository.save_meeting(meeting_id, meeting.owner_id, meeting.question, meeting.resume_token, request_key)
+        self._save_state(MeetingState(thread_id=meeting_id))
         return self.view(meeting_id)
 
     def run(self, meeting_id: str, actor_id: str) -> MeetingView:
-        meeting = self._authorized(meeting_id, actor_id)
+        self._authorized(meeting_id, actor_id)
         try:
-            self.workflow.run(meeting.meeting_id)
+            self.workflow.run(meeting_id, resume=True)
         except HumanInterrupt:
             pass
         return self.view(meeting_id)
@@ -46,25 +50,41 @@ class MeetingService:
         meeting = self._authorized(meeting_id, payload.actor_id)
         if payload.token != meeting.resume_token:
             raise PermissionError("invalid resume token")
-        state = self.checkpointer.get(meeting_id)
+        state = self.checkpointer.get(meeting_id) or self.repository.load_state(meeting_id)
         if state is None:
             raise KeyError(meeting_id)
         if state.phase == "human_confirm_governance":
-            self.workflow.resume_governance(meeting_id, payload.decision)
+            new_state = self.workflow.resume_governance(meeting_id, payload.decision)
         else:
             decision = "approve" if payload.decision == "confirm" else payload.decision
-            self.workflow.resume_final(meeting_id, decision)
+            new_state = self.workflow.resume_final(meeting_id, decision)
+        self._save_state(new_state)
         return self.view(meeting_id)
 
-    def view(self, meeting_id: str) -> MeetingView:
-        meeting = self.meetings[meeting_id]
-        state = self.checkpointer.get(meeting_id)
-        if state is None:
-            raise KeyError(meeting_id)
-        return MeetingView(meeting_id=meeting_id, owner_id=meeting.owner_id, phase=state.phase, human_pending=state.human_pending)
-
     def _authorized(self, meeting_id: str, actor_id: str) -> Meeting:
-        meeting = self.meetings[meeting_id]
+        meeting = self._load_meeting(meeting_id)
         if meeting.owner_id != actor_id:
             raise PermissionError("meeting access denied")
         return meeting
+
+    def view(self, meeting_id: str) -> MeetingView:
+        meeting = self._load_meeting(meeting_id)
+        state = self.checkpointer.get(meeting_id) or self.repository.load_state(meeting_id)
+        if state is None:
+            raise KeyError(meeting_id)
+        self.checkpointer.put(state)
+        return MeetingView(meeting_id=meeting_id, owner_id=meeting.owner_id, phase=state.phase, human_pending=state.human_pending)
+
+    def _load_meeting(self, meeting_id: str) -> Meeting:
+        if meeting_id in self.meetings:
+            return self.meetings[meeting_id]
+        row = self.repository.get_meeting(meeting_id)
+        if row is None:
+            raise KeyError(meeting_id)
+        meeting = Meeting(*row)
+        self.meetings[meeting_id] = meeting
+        return meeting
+
+    def _save_state(self, state: MeetingState) -> None:
+        self.checkpointer.put(state)
+        self.repository.save_state(state)
