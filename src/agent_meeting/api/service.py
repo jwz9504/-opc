@@ -64,6 +64,8 @@ class MeetingService:
         else:
             decision = "approve" if payload.decision == "confirm" else payload.decision
             new_state = self.workflow.resume_final(meeting_id, decision)
+        action = "governance_confirmed" if state.phase == "human_confirm_governance" and payload.decision == "confirm" else f"human_{payload.decision}"
+        self.audit.append(meeting_id, payload.actor_id, action, {"phase_before": state.phase})
         self._save_state(new_state)
         return self.view(meeting_id)
 
@@ -84,6 +86,7 @@ class MeetingService:
             raise KeyError(meeting_id)
         data: dict[str, object] = {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft"}
         self.reports.save(meeting_id, data)
+        self.audit.append(meeting_id, actor_id, "report_generated", {"status": data["status"]})
         return data
 
     def audit_events(self, meeting_id: str, actor_id: str) -> list[dict[str, object]]:
