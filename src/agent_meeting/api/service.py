@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 
 from ..graph import HumanInterrupt, StubWorkflow
+from ..services.artifact_repository import ArtifactRepository
 from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
 from ..services.report_repository import ReportRepository
@@ -26,6 +27,7 @@ class MeetingService:
         self.workflow = StubWorkflow(self.checkpointer)
         self.audit = AuditRepository(self.repository.db)
         self.reports = ReportRepository(self.repository.db)
+        self.artifacts = ArtifactRepository(self.repository.db)
         self.meetings: dict[str, Meeting] ={}
         self.requests: dict[str, str] ={}
 
