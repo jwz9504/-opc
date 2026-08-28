@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 
-from ..langgraph_workflow import build_graph, run_graph
+from ..langgraph_workflow import build_sqlite_graph, run_graph
 from ..services.artifact_repository import ArtifactRepository
 from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
@@ -24,7 +24,7 @@ class MeetingService:
     def __init__(self, repository: SQLiteRepository | None = None) -> None:
         self.repository = repository or SQLiteRepository()
         self.checkpointer = InMemoryCheckpointer()
-        self.graph = build_graph()
+        self.graph, self.graph_connection = build_sqlite_graph(str(self.repository.path))
         self.audit = AuditRepository(self.repository.db)
         self.reports = ReportRepository(self.repository.db)
         self.artifacts = ArtifactRepository(self.repository.db)

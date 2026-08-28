@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import sqlite3
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
@@ -36,7 +37,7 @@ def _final(state: GraphState) -> dict[str, Any]:
     return {"phase": "cancelled", "human_pending": False}
 
 
-def build_graph(checkpointer: InMemorySaver | None = None) -> Any:
+def build_graph(checkpointer: Any | None = None) -> Any:
     builder = StateGraph(GraphState)
     builder.add_node("governance", _governance)
     builder.add_node("work", _work)
@@ -45,7 +46,14 @@ def build_graph(checkpointer: InMemorySaver | None = None) -> Any:
     builder.add_edge("governance", "work")
     builder.add_edge("work", "final")
     builder.add_edge("final", END)
-    return builder.compile(checkpointer=checkpointer or InMemorySaver())
+    return builder.compile(checkpointer=checkpointer or __import__("langgraph.checkpoint.memory", fromlist=["InMemorySaver"]).InMemorySaver())
+
+
+def build_sqlite_graph(path: str = "data/meetings.db") -> tuple[Any, sqlite3.Connection]:
+    connection = sqlite3.connect(path, check_same_thread=False)
+    saver = SqliteSaver(connection)
+    saver.setup()
+    return build_graph(saver), connection
 
 
 def run_graph(graph: Any, thread_id: str, resume_value: Any | None = None) -> Any:
