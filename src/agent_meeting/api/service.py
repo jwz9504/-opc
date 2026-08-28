@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 
-from ..graph import HumanInterrupt, StubWorkflow
+from ..langgraph_workflow import build_graph, run_graph
 from ..services.artifact_repository import ArtifactRepository
 from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
@@ -24,7 +24,7 @@ class MeetingService:
     def __init__(self, repository: SQLiteRepository | None = None) -> None:
         self.repository = repository or SQLiteRepository()
         self.checkpointer = InMemoryCheckpointer()
-        self.workflow = StubWorkflow(self.checkpointer)
+        self.graph = build_graph()
         self.audit = AuditRepository(self.repository.db)
         self.reports = ReportRepository(self.repository.db)
         self.artifacts = ArtifactRepository(self.repository.db)
@@ -50,9 +50,15 @@ class MeetingService:
         self._authorized(meeting_id, actor_id)
         self.audit.append(meeting_id, actor_id, "meeting_run", {"phase_before": self.view(meeting_id).phase})
         try:
-            self.workflow.run(meeting_id, resume=True)
-        except HumanInterrupt:
-            pass
+            result = run_graph(self.graph, meeting_id)
+            updated = MeetingState(thread_id=meeting_id, phase=result.get("phase", "human_confirm_governance"), human_pending=result.get("human_pending", True), summaries=result.get("summaries",{}))
+            self._save_state(updated)
+        except (KeyError, RuntimeError):
+            restored = self.repository.load_state(meeting_id)
+            if restored is None:
+                raise
+            updated = restored
+        self._save_state(updated)
         return self.view(meeting_id)
 
     def resume(self, meeting_id: str, payload: ResumeRequest) -> MeetingView:
@@ -63,10 +69,10 @@ class MeetingService:
         if state is None:
             raise KeyError(meeting_id)
         if state.phase == "human_confirm_governance":
-            new_state = self.workflow.resume_governance(meeting_id, payload.decision)
+            result = run_graph(self.graph, meeting_id, payload.decision)
         else:
-            decision = "approve" if payload.decision == "confirm" else payload.decision
-            new_state = self.workflow.resume_final(meeting_id, decision)
+            result = run_graph(self.graph, meeting_id, "approve" if payload.decision == "confirm" else payload.decision)
+        new_state = MeetingState(thread_id=meeting_id, phase=result.get("phase", state.phase), human_pending=result.get("human_pending", False), summaries=result.get("summaries", state.summaries))
         action = "governance_confirmed" if state.phase == "human_confirm_governance" and payload.decision == "confirm" else f"human_{payload.decision}"
         self.audit.append(meeting_id, payload.actor_id, action, {"phase_before": state.phase})
         self._save_state(new_state)
