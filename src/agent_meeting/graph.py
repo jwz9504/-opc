@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .nodes.research import stub_ideation, stub_research
 from .services.checkpoint import InMemoryCheckpointer
 from .state import MeetingState
 
@@ -27,7 +28,7 @@ class StubWorkflow:
             state = state.model_copy(update={"phase": "human_confirm_governance", "human_pending": True})
             self.checkpointer.put(state)
             raise HumanInterrupt({"reason": "governance_confirmation_required", "allowed_operations": ["confirm", "modify", "cancel"]})
-        state = state.model_copy(update={"summaries": {**state.summaries, "governance_confirmed": True}, "human_pending": False})
+        state = state.model_copy(update={"summaries": {**state.summaries, "governance_confirmed": True, "research": stub_research(thread_id), "proposals": [p.model_dump() for p in stub_ideation(thread_id)]}, "human_pending": False})
         for phase in ("research", "ideation", "selection", "revision", "quality_gates"):
             state = state.model_copy(update={"phase": phase})
             self.checkpointer.put(state)
@@ -44,7 +45,7 @@ class StubWorkflow:
         if decision == "cancel":
             state = state.model_copy(update={"phase": "cancelled", "cancelled": True, "human_pending": False})
         elif decision == "confirm":
-            state = state.model_copy(update={"summaries": {**state.summaries, "governance_confirmed": True}, "human_pending": False})
+            state = state.model_copy(update={"summaries": {**state.summaries, "governance_confirmed": True, "research": stub_research(thread_id), "proposals": [p.model_dump() for p in stub_ideation(thread_id)]}, "human_pending": False})
             for phase in ("research", "ideation", "selection", "revision", "quality_gates"):
                 state = state.model_copy(update={"phase": phase})
                 self.checkpointer.put(state)
