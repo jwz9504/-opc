@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 
 from ..graph import HumanInterrupt, StubWorkflow
+from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
 from ..services.sqlite_repository import SQLiteRepository
 from ..state import MeetingState
@@ -22,6 +23,7 @@ class MeetingService:
         self.repository = repository or SQLiteRepository()
         self.checkpointer = InMemoryCheckpointer()
         self.workflow = StubWorkflow(self.checkpointer)
+        self.audit = AuditRepository(self.repository.db)
         self.meetings: dict[str, Meeting] ={}
         self.requests: dict[str, str] ={}
 
@@ -36,6 +38,7 @@ class MeetingService:
         self.requests[request_key] = meeting_id
         self.repository.save_meeting(meeting_id, meeting.owner_id, meeting.question, meeting.resume_token, request_key)
         self._save_state(MeetingState(thread_id=meeting_id))
+        self.audit.append(meeting_id, payload.owner_id, "meeting_created")
         return self.view(meeting_id)
 
     def run(self, meeting_id: str, actor_id: str) -> MeetingView:
@@ -60,6 +63,10 @@ class MeetingService:
             new_state = self.workflow.resume_final(meeting_id, decision)
         self._save_state(new_state)
         return self.view(meeting_id)
+
+    def audit_events(self, meeting_id: str, actor_id: str) -> list[dict[str, object]]:
+        self._authorized(meeting_id, actor_id)
+        return self.audit.for_meeting(meeting_id)
 
     def _authorized(self, meeting_id: str, actor_id: str) -> Meeting:
         meeting = self._load_meeting(meeting_id)

@@ -55,3 +55,14 @@ def resume_meeting(meeting_id: str, payload: ResumeRequest, authorization: str |
         raise HTTPException(status_code=404, detail="meeting not found") from None
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from None
+
+
+@app.get("/meetings/{meeting_id}/audit")
+def get_audit(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> list[dict[str, object]]:
+    require_token(authorization)
+    try:
+        return service.audit_events(meeting_id, actor_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="meeting not found") from None
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="meeting access denied") from None
