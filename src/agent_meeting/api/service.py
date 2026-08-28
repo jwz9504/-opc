@@ -84,7 +84,23 @@ class MeetingService:
         state = self.checkpointer.get(meeting_id) or self.repository.load_state(meeting_id)
         if state is None:
             raise KeyError(meeting_id)
-        data: dict[str, object] = {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft"}
+        stored = self.reports.get(meeting_id)
+        if stored is not None:
+            return stored
+        data: dict[str, object] = {
+            "meeting_id": meeting_id,
+            "phase": state.phase,
+            "status": "final" if state.phase == "frozen_final" else "draft",
+            "执行摘要": f"会议当前阶段：{state.phase}",
+            "推荐方案": "待方向选择完成后生成",
+            "实施步骤": "待执行专家展开",
+            "风险与缓解": "待红队评审",
+            "决策记录": "决策记录由结构化状态生成",
+            "少数派意见": "暂无",
+            "行动项": "待人工指定",
+            "证据与引用附录": "待 Grounding 校验完成",
+            "会议审计摘要": "可通过审计接口查询",
+        }
         self.reports.save(meeting_id, data)
         self.audit.append(meeting_id, actor_id, "report_generated", {"status": data["status"]})
         return data

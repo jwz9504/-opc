@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import PlainTextResponse
 
 from .dto import MeetingCreate, MeetingView, ResumeRequest
 from .service import MeetingService
@@ -77,6 +78,18 @@ def get_report(meeting_id: str, actor_id: str, authorization: str | None = Heade
         raise HTTPException(status_code=404, detail="meeting not found") from None
     except PermissionError:
         raise HTTPException(status_code=403, detail="meeting access denied") from None
+
+
+@app.get("/meetings/{meeting_id}/report.md", response_class=PlainTextResponse)
+def download_report(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> str:
+    require_token(authorization)
+    try:
+        service._authorized(meeting_id, actor_id)
+        result = service.report(meeting_id, actor_id)
+        stored = service.reports.get(meeting_id)
+        return stored["markdown_path"] if stored else str(result)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="meeting not found") from None
 
 
 @app.get("/meetings/{meeting_id}/audit")
