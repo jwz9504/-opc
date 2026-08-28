@@ -35,6 +35,25 @@ class StubWorkflow:
         self.checkpointer.put(state)
         raise HumanInterrupt({"reason": "final_approval_required", "allowed_operations": ["approve", "reject", "revise"]})
 
+    def resume_governance(self, thread_id: str, decision: str) -> MeetingState:
+        state = self.checkpointer.get(thread_id)
+        if state is None:
+            raise KeyError(thread_id)
+        if state.phase != "human_confirm_governance":
+            return state
+        if decision == "cancel":
+            state = state.model_copy(update={"phase": "cancelled", "cancelled": True, "human_pending": False})
+        elif decision == "confirm":
+            state = state.model_copy(update={"summaries": {**state.summaries, "governance_confirmed": True}, "human_pending": False})
+            for phase in ("research", "ideation", "selection", "revision", "quality_gates"):
+                state = state.model_copy(update={"phase": phase})
+                self.checkpointer.put(state)
+            state = state.model_copy(update={"phase": "human_final_approval", "human_pending": True})
+        else:
+            state = state.model_copy(update={"phase": "human_confirm_governance", "human_pending": True})
+        self.checkpointer.put(state)
+        return state
+
     def resume_final(self, thread_id: str, decision: str) -> MeetingState:
         state = self.checkpointer.get(thread_id)
         if state is None:

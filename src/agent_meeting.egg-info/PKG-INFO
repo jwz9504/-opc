@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: agent-meeting
+Version: 0.1.0
+Summary: Governed LangGraph multi-agent meeting workflow
+Requires-Python: >=3.11
+Requires-Dist: pydantic<3,>=2.7
+Requires-Dist: fastapi<1,>=0.115
+Requires-Dist: uvicorn[standard]<1,>=0.30
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: pytest-cov>=5; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+Requires-Dist: mypy>=1.10; extra == "dev"
+Provides-Extra: langgraph
+Requires-Dist: langgraph<1,>=0.2; extra == "langgraph"

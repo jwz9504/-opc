@@ -46,8 +46,14 @@ class MeetingService:
         meeting = self._authorized(meeting_id, payload.actor_id)
         if payload.token != meeting.resume_token:
             raise PermissionError("invalid resume token")
-        decision = "approve" if payload.decision == "confirm" else payload.decision
-        self.workflow.resume_final(meeting_id, decision)
+        state = self.checkpointer.get(meeting_id)
+        if state is None:
+            raise KeyError(meeting_id)
+        if state.phase == "human_confirm_governance":
+            self.workflow.resume_governance(meeting_id, payload.decision)
+        else:
+            decision = "approve" if payload.decision == "confirm" else payload.decision
+            self.workflow.resume_final(meeting_id, decision)
         return self.view(meeting_id)
 
     def view(self, meeting_id: str) -> MeetingView:

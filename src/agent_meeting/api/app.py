@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Header, HTTPException
 
-from .dto import MeetingCreate, ResumeRequest
+from .dto import MeetingCreate, MeetingView, ResumeRequest
 from .service import MeetingService
 
 app = FastAPI(title="Agent Meeting API", version="0.1.0")
@@ -20,13 +20,13 @@ def health() -> dict[str, str]:
 
 
 @app.post("/meetings")
-def create_meeting(payload: MeetingCreate, x_request_id: str = Header(...), authorization: str | None = Header(None)):
+def create_meeting(payload: MeetingCreate, x_request_id: str = Header(...), authorization: str | None = Header(None)) -> MeetingView:
     require_token(authorization)
     return service.create(payload, x_request_id)
 
 
 @app.get("/meetings/{meeting_id}")
-def get_meeting(meeting_id: str, actor_id: str, authorization: str | None = Header(None)):
+def get_meeting(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> MeetingView:
     require_token(authorization)
     try:
         service._authorized(meeting_id, actor_id)
@@ -38,7 +38,7 @@ def get_meeting(meeting_id: str, actor_id: str, authorization: str | None = Head
 
 
 @app.post("/meetings/{meeting_id}/run")
-def run_meeting(meeting_id: str, actor_id: str, authorization: str | None = Header(None)):
+def run_meeting(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> MeetingView:
     require_token(authorization)
     try:
         return service.run(meeting_id, actor_id)
@@ -47,7 +47,7 @@ def run_meeting(meeting_id: str, actor_id: str, authorization: str | None = Head
 
 
 @app.post("/meetings/{meeting_id}/resume")
-def resume_meeting(meeting_id: str, payload: ResumeRequest, authorization: str | None = Header(None)):
+def resume_meeting(meeting_id: str, payload: ResumeRequest, authorization: str | None = Header(None)) -> MeetingView:
     require_token(authorization)
     try:
         return service.resume(meeting_id, payload)

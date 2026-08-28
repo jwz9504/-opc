@@ -10,7 +10,7 @@ class MeetingCreate(BaseModel):
     owner_id: str = Field(min_length=1)
 
 class ResumeRequest(BaseModel):
-    decision: Literal["confirm", "approve", "reject", "revise"]
+    decision: Literal["confirm", "approve", "reject", "revise", "cancel"]
     actor_id: str
     token: str
 
