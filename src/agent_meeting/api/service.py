@@ -45,6 +45,7 @@ class MeetingService:
 
     def run(self, meeting_id: str, actor_id: str) -> MeetingView:
         self._authorized(meeting_id, actor_id)
+        self.audit.append(meeting_id, actor_id, "meeting_run", {"phase_before": self.view(meeting_id).phase})
         try:
             self.workflow.run(meeting_id, resume=True)
         except HumanInterrupt:
