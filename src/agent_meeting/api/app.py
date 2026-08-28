@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 
 from .dto import MeetingCreate, MeetingView, ResumeRequest
 from .service import MeetingService
@@ -81,18 +81,30 @@ def get_report(meeting_id: str, actor_id: str, authorization: str | None = Heade
 
 
 @app.get("/meetings/{meeting_id}/report.md", response_class=PlainTextResponse)
-def download_report(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> str:
+def download_report(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> FileResponse:
     require_token(authorization)
     try:
         service._authorized(meeting_id, actor_id)
-        result = service.report(meeting_id, actor_id)
+        service.report(meeting_id, actor_id)
         stored = service.reports.get(meeting_id)
-        return stored["markdown_path"] if stored else str(result)
+        if stored is None:
+            raise HTTPException(status_code=404, detail="report not found")
+        return FileResponse(stored["markdown_path"], media_type="text/markdown", filename=f"{meeting_id}.md")
     except KeyError:
         raise HTTPException(status_code=404, detail="meeting not found") from None
 
 
-@app.get("/meetings/{meeting_id}/audit")
+@app.get("/meetings/{meeting_id}/report.json")
+def download_report_json(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> dict[str, object]:
+    require_token(authorization)
+    try:
+        return service.report(meeting_id, actor_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="meeting not found") from None
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="meeting access denied") from None
+
+
 def get_audit(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> list[dict[str, object]]:
     require_token(authorization)
     try:
