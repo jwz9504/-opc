@@ -12,8 +12,8 @@ from ..services.artifact_repository import ArtifactRepository
 from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
 from ..services.evidence_repository import EvidenceRepository
-from ..services.report_repository import ReportRepository
 from ..services.retrieval import StubRetrievalProvider
+from ..services.sqlalchemy_report_store import SQLAlchemyReportStore
 from ..services.sqlalchemy_store import SQLAlchemyMeetingStore
 from ..services.sqlite_repository import SQLiteRepository
 from ..state import MeetingState
@@ -35,7 +35,7 @@ class MeetingService:
         self.checkpointer = InMemoryCheckpointer()
         self.graph, self.graph_connection = build_sqlite_graph(str(self.repository.path))
         self.audit = AuditRepository(self.repository.db)
-        self.reports = ReportRepository(self.repository.db)
+        self.reports = SQLAlchemyReportStore(self.repository.path)
         self.artifacts = ArtifactRepository(self.repository.db)
         self.artifact_writer = ArtifactEventWriter(self.artifacts)
         self.evidence = EvidenceRepository(self.repository.db)
