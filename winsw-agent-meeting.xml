@@ -1,0 +1,10 @@
+<service>
+  <id>agent-meeting</id>
+  <name>Agent Meeting API</name>
+  <description>Governed agent meeting API</description>
+  <workingdirectory>C:\agent-meeting</workingdirectory>
+  <executable>C:\Users\Administrator\.local\bin\uv.exe</executable>
+  <arguments>run uvicorn agent_meeting.api.app:app --host 127.0.0.1 --port 8000</arguments>
+  <logpath>C:\agent-meeting\data\logs</logpath>
+  <onfailure action="restart" delay="10 sec" />
+</service>
