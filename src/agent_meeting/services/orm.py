@@ -35,6 +35,22 @@ class RequestKeyModel(Base):
     request_key: Mapped[str] = mapped_column(String(255), primary_key=True)
     meeting_id: Mapped[str] = mapped_column(String(64), nullable=False)
 
+class ReportModel(Base):
+    __tablename__ = "reports_orm"
+    meeting_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+    markdown_path: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class AuditModel(Base):
+    __tablename__ = "audit_events_orm"
+    event_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    meeting_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    details: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 def create_engine_and_session(url: str = "sqlite:///data/meetings.db") -> tuple[Engine, sessionmaker[Session]]:
     connect_args: dict[str, Any] = {"check_same_thread": False} if url.startswith("sqlite") else{}
     engine = create_engine(url, connect_args=connect_args)
