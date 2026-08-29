@@ -128,10 +128,10 @@ def download_report_json(meeting_id: str, actor_id: str, authorization: str | No
 
 
 @app.get("/meetings/{meeting_id}/artifacts")
-def get_artifacts(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> list[dict[str, object]]:
+def get_artifacts(meeting_id: str, actor_id: str, artifact_type: str | None = None, limit: int = 100, offset: int = 0, authorization: str | None = Header(None)) -> list[dict[str, object]]:
     require_token(authorization)
     try:
-        return service.artifacts_for_meeting(meeting_id, actor_id)
+        return service.artifacts_for_meeting(meeting_id, actor_id, artifact_type, limit, offset)
     except KeyError:
         raise HTTPException(status_code=404, detail="meeting not found") from None
     except PermissionError:

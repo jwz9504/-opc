@@ -128,9 +128,12 @@ class MeetingService:
         self._authorized(meeting_id, actor_id)
         return self.audit.for_meeting(meeting_id)
 
-    def artifacts_for_meeting(self, meeting_id: str, actor_id: str) -> list[dict[str, object]]:
+    def artifacts_for_meeting(self, meeting_id: str, actor_id: str, artifact_type: str | None = None, limit: int = 100, offset: int = 0) -> list[dict[str, object]]:
         self._authorized(meeting_id, actor_id)
-        return self.artifacts.list_for_meeting(meeting_id)
+        items = self.artifacts.list_for_meeting(meeting_id)
+        if artifact_type:
+            items = [item for item in items if item.get("artifact_type") == artifact_type]
+        return items[offset: offset + min(limit, 100)]
 
     def _authorized(self, meeting_id: str, actor_id: str) -> Meeting:
         meeting = self._load_meeting(meeting_id)
