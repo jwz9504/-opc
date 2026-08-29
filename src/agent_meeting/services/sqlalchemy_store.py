@@ -43,5 +43,17 @@ class SQLAlchemyMeetingStore:
                 created_at=model.created_at,
             )
 
+    def save_state(self, meeting_id: str, payload: str) -> None:
+        with self.session_factory() as session:
+            SQLAlchemyRepository(session).save_state(meeting_id, payload)
+
+    def load_state(self, meeting_id: str) -> str | None:
+        with self.session_factory() as session:
+            return SQLAlchemyRepository(session).load_state(meeting_id)
+
+    def save_artifact(self, artifact_id: str, artifact_type: str, payload: dict[str, object]) -> None:
+        with self.session_factory() as session:
+            SQLAlchemyRepository(session).save_artifact(artifact_id, artifact_type, payload)
+
     def close(self) -> None:
         self.engine.dispose()

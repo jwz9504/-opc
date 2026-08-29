@@ -154,4 +154,5 @@ class MeetingService:
 
     def _save_state(self, state: MeetingState) -> None:
         self.checkpointer.put(state)
+        self.orm_store.save_state(state.thread_id, state.model_dump_json())
         self.repository.save_state(state)
