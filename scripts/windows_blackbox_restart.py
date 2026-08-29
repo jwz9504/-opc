@@ -37,6 +37,8 @@ def main() -> None:
         restored = httpx.get(f"{BASE}/meetings/{meeting_id}?actor_id=blackbox", headers=headers)
         restored.raise_for_status()
         assert restored.json()["human_pending"] is True
+        confirm = httpx.post(f"{BASE}/meetings/{meeting_id}/resume", headers=headers, json={"decision": "confirm", "actor_id": "blackbox", "token": "invalid"})
+        assert confirm.status_code == 403
         report = httpx.get(f"{BASE}/meetings/{meeting_id}/report.json?actor_id=blackbox", headers=headers)
         report.raise_for_status()
         audit = httpx.get(f"{BASE}/meetings/{meeting_id}/audit?actor_id=blackbox", headers=headers)
