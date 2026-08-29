@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from .artifact_repository import ArtifactRepository
+from .sqlalchemy_artifact_store import SQLAlchemyArtifactStore
 
 
 class ArtifactEventWriter:
     """Persists graph-produced artifacts without coupling graph nodes to SQLite."""
 
-    def __init__(self, repository: ArtifactRepository) -> None:
+    def __init__(self, repository: SQLAlchemyArtifactStore) -> None:
         self.repository = repository
 
     def write_proposals(self, proposals: list[dict[str, Any]]) -> int:

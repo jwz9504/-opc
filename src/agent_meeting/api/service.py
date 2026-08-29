@@ -8,10 +8,10 @@ from langgraph.errors import GraphInterrupt
 from ..langgraph_workflow import build_sqlite_graph, run_graph
 from ..policies.selection_policy import select_proposal
 from ..services.artifact_events import ArtifactEventWriter
-from ..services.artifact_repository import ArtifactRepository
 from ..services.checkpoint import InMemoryCheckpointer
 from ..services.evidence_repository import EvidenceRepository
 from ..services.retrieval import StubRetrievalProvider
+from ..services.sqlalchemy_artifact_store import SQLAlchemyArtifactStore
 from ..services.sqlalchemy_audit_store import SQLAlchemyAuditStore
 from ..services.sqlalchemy_report_store import SQLAlchemyReportStore
 from ..services.sqlalchemy_store import SQLAlchemyMeetingStore
@@ -36,7 +36,7 @@ class MeetingService:
         self.graph, self.graph_connection = build_sqlite_graph(str(self.repository.path))
         self.audit = SQLAlchemyAuditStore(self.repository.path)
         self.reports = SQLAlchemyReportStore(self.repository.path)
-        self.artifacts = ArtifactRepository(self.repository.db)
+        self.artifacts = SQLAlchemyArtifactStore(self.repository.path)
         self.artifact_writer = ArtifactEventWriter(self.artifacts)
         self.evidence = EvidenceRepository(self.repository.db)
         self.retrieval = StubRetrievalProvider()
