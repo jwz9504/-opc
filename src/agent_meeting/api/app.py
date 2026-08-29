@@ -80,6 +80,7 @@ def select_meeting_proposal(meeting_id: str, payload: SelectionRequest, authoriz
         raise HTTPException(status_code=400, detail=str(exc)) from None
 
 
+@app.post("/meetings/{meeting_id}/cancel")
 def cancel_meeting(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> MeetingView:
     require_token(authorization)
     try:
