@@ -6,19 +6,33 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .orm import ArtifactModel, MeetingModel
+from .orm import ArtifactModel, MeetingModel, MeetingStateModel, RequestKeyModel
 
 
 class SQLAlchemyRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def save_meeting(self, model: MeetingModel) -> None:
+    def save_meeting(self, model: MeetingModel, request_key: str | None = None) -> None:
         self.session.merge(model)
+        if request_key:
+            self.session.merge(RequestKeyModel(request_key=request_key, meeting_id=model.meeting_id))
         self.session.commit()
 
     def get_meeting(self, meeting_id: str) -> MeetingModel | None:
         return self.session.get(MeetingModel, meeting_id)
+
+    def get_by_request(self, request_key: str) -> str | None:
+        model = self.session.get(RequestKeyModel, request_key)
+        return model.meeting_id if model else None
+
+    def save_state(self, meeting_id: str, payload: str) -> None:
+        self.session.merge(MeetingStateModel(meeting_id=meeting_id, payload=payload))
+        self.session.commit()
+
+    def load_state(self, meeting_id: str) -> str | None:
+        model = self.session.get(MeetingStateModel, meeting_id)
+        return model.payload if model else None
 
     def save_artifact(self, artifact_id: str, artifact_type: str, payload: dict[str, Any]) -> None:
         self.session.merge(ArtifactModel(artifact_id=artifact_id, artifact_type=artifact_type, payload=json.dumps(payload, ensure_ascii=False, sort_keys=True)))
