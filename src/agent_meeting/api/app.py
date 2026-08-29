@@ -127,7 +127,17 @@ def download_report_json(meeting_id: str, actor_id: str, authorization: str | No
         raise HTTPException(status_code=403, detail="meeting access denied") from None
 
 
-@app.get("/meetings/{meeting_id}/audit")
+@app.get("/meetings/{meeting_id}/artifacts")
+def get_artifacts(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> list[dict[str, object]]:
+    require_token(authorization)
+    try:
+        return service.artifacts_for_meeting(meeting_id, actor_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="meeting not found") from None
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="meeting access denied") from None
+
+
 def get_audit(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> list[dict[str, object]]:
     require_token(authorization)
     try:

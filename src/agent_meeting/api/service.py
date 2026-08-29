@@ -128,6 +128,10 @@ class MeetingService:
         self._authorized(meeting_id, actor_id)
         return self.audit.for_meeting(meeting_id)
 
+    def artifacts_for_meeting(self, meeting_id: str, actor_id: str) -> list[dict[str, object]]:
+        self._authorized(meeting_id, actor_id)
+        return self.artifacts.list_for_meeting(meeting_id)
+
     def _authorized(self, meeting_id: str, actor_id: str) -> Meeting:
         meeting = self._load_meeting(meeting_id)
         if meeting.owner_id != actor_id:
