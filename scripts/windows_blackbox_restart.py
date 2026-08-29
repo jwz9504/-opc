@@ -44,6 +44,10 @@ def main() -> None:
         assert confirm.status_code == 403
         report = httpx.get(f"{BASE}/meetings/{meeting_id}/report.json?actor_id=blackbox", headers=headers)
         report.raise_for_status()
+        assert report.json()["meeting_id"] == meeting_id
+        markdown = httpx.get(f"{BASE}/meetings/{meeting_id}/report.md?actor_id=blackbox", headers=headers)
+        markdown.raise_for_status()
+        assert "#" in markdown.text
         audit = httpx.get(f"{BASE}/meetings/{meeting_id}/audit?actor_id=blackbox", headers=headers)
         audit.raise_for_status()
         print({"meeting_id": meeting_id, "restored": restored.json(), "report_status": report.json().get("status"), "audit_events": len(audit.json())})
