@@ -7,6 +7,8 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
+from .nodes.research import stub_ideation, stub_research
+
 
 class GraphState(TypedDict, total=False):
     thread_id: str
@@ -27,7 +29,9 @@ def _governance(state: GraphState) -> dict[str, Any]:
 
 
 def _work(state: GraphState) -> dict[str, Any]:
-    return {"phase": "human_final_approval", "human_pending": True, "summaries": {"stub": "research_and_ideation_complete"}}
+    thread_id = state.get("thread_id", "meeting")
+    proposals = stub_ideation(thread_id)
+    return {"phase": "human_final_approval", "human_pending": True, "summaries": {"stub": "research_and_ideation_complete", "research": stub_research(thread_id), "proposals": [proposal.model_dump(mode="json") for proposal in proposals], "decision": {"status": "pending_human_selection", "candidate_ids": [proposal.envelope.artifact_id for proposal in proposals]}}}
 
 
 def _final(state: GraphState) -> dict[str, Any]:
