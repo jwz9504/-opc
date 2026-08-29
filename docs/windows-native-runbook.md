@@ -1,11 +1,8 @@
 
-## Artifact 查询
+Artifact API 支持分页和类型筛选：
 
-查询指定会议的结构化产物：
-
-```powershell
-$headers = @{ Authorization = "Bearer dev-token" }
-Invoke-RestMethod "http://127.0.0.1:8000/meetings/{meeting_id}/artifacts?actor_id={owner_id}" -Headers $headers
+```text
+GET /meetings/{id}/artifacts?actor_id=owner&artifact_type=proposal&limit=20&offset=0
 ```
 
-只有会议所有者可以查看 Artifact。结果包含会议 Artifact、研究结果和 Proposal。
+`limit` 最大为 100，`offset` 从 0 开始。只有会议所有者可以查询。
