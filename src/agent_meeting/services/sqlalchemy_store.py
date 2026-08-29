@@ -26,6 +26,10 @@ class SQLAlchemyMeetingStore:
                 request_key,
             )
 
+    def get_by_request(self, request_key: str) -> str | None:
+        with self.session_factory() as session:
+            return SQLAlchemyRepository(session).get_by_request(request_key)
+
     def get_meeting(self, meeting_id: str) -> MeetingModel | None:
         with self.session_factory() as session:
             model = SQLAlchemyRepository(session).get_meeting(meeting_id)
