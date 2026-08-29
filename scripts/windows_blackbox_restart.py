@@ -22,7 +22,8 @@ def wait_ready() -> None:
 
 
 def main() -> None:
-    process = subprocess.Popen(["python", "-m", "uvicorn", "agent_meeting.api.app:app", "--host", "127.0.0.1", "--port", "8765"], cwd=ROOT)
+    command = ["uv", "run", "uvicorn", "agent_meeting.api.app:app", "--host", "127.0.0.1", "--port", "8765"]
+    process = subprocess.Popen(command, cwd=ROOT)
     try:
         wait_ready()
         headers = {"Authorization": f"Bearer {TOKEN}", "X-Request-ID": f"blackbox-{time.time_ns()}"}
@@ -32,7 +33,8 @@ def main() -> None:
         httpx.post(f"{BASE}/meetings/{meeting_id}/run?actor_id=blackbox", headers=headers).raise_for_status()
         process.terminate()
         process.wait(timeout=10)
-        process = subprocess.Popen(["python", "-m", "uvicorn", "agent_meeting.api.app:app", "--host", "127.0.0.1", "--port", "8765"], cwd=ROOT)
+        command = ["uv", "run", "uvicorn", "agent_meeting.api.app:app", "--host", "127.0.0.1", "--port", "8765"]
+        process = subprocess.Popen(command, cwd=ROOT)
         wait_ready()
         restored = httpx.get(f"{BASE}/meetings/{meeting_id}?actor_id=blackbox", headers=headers)
         restored.raise_for_status()
