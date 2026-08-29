@@ -1,29 +1,11 @@
 
-## 生产加固
+## Artifact 查询
 
-生产环境必须设置非默认 API Token：
-
-```powershell
-$env:AGENT_MEETING_ENV="prod"
-$env:AGENT_MEETING_API_TOKEN="replace-with-a-long-random-token"
-```
-
-健康详情：
+查询指定会议的结构化产物：
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health/details
+$headers = @{ Authorization = "Bearer dev-token" }
+Invoke-RestMethod "http://127.0.0.1:8000/meetings/{meeting_id}/artifacts?actor_id={owner_id}" -Headers $headers
 ```
 
-数据库完整性检查：
-
-```powershell
-uv run python scripts/check-sqlite.py
-```
-
-数据库备份：
-
-```powershell
-uv run python scripts/backup-sqlite.py
-```
-
-生产环境禁止使用默认 `dev-token`。启动时配置模块会主动拒绝该配置。
+只有会议所有者可以查看 Artifact。结果包含会议 Artifact、研究结果和 Proposal。
