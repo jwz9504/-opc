@@ -14,6 +14,7 @@ from ..services.checkpoint import InMemoryCheckpointer
 from ..services.evidence_repository import EvidenceRepository
 from ..services.report_repository import ReportRepository
 from ..services.retrieval import StubRetrievalProvider
+from ..services.sqlalchemy_store import SQLAlchemyMeetingStore
 from ..services.sqlite_repository import SQLiteRepository
 from ..state import MeetingState
 from .dto import MeetingCreate, MeetingView, ResumeRequest, SelectionRequest
@@ -30,6 +31,7 @@ class Meeting:
 class MeetingService:
     def __init__(self, repository: SQLiteRepository | None = None) -> None:
         self.repository = repository or SQLiteRepository()
+        self.orm_store = SQLAlchemyMeetingStore(self.repository.path)
         self.checkpointer = InMemoryCheckpointer()
         self.graph, self.graph_connection = build_sqlite_graph(str(self.repository.path))
         self.audit = AuditRepository(self.repository.db)
@@ -42,7 +44,7 @@ class MeetingService:
         self.requests: dict[str, str] ={}
 
     def create(self, payload: MeetingCreate, request_key: str) -> MeetingView:
-        existing = self.repository.get_by_request(request_key)
+        existing = self.orm_store.get_by_request(request_key)
         if existing:
             return self.view(existing)
         meeting_id = sha256(f"{payload.owner_id + payload.question}".encode()).hexdigest()[:16]
@@ -50,6 +52,7 @@ class MeetingService:
         meeting = Meeting(meeting_id, payload.owner_id, payload.question, token)
         self.meetings[meeting_id] = meeting
         self.requests[request_key] = meeting_id
+        self.orm_store.save_meeting(meeting_id, meeting.owner_id, meeting.question, meeting.resume_token, request_key)
         self.repository.save_meeting(meeting_id, meeting.owner_id, meeting.question, meeting.resume_token, request_key)
         self._save_state(MeetingState(thread_id=meeting_id))
         self.artifacts.save(f"{meeting_id}:meeting", "meeting", {"question": payload.question, "owner_id": payload.owner_id})
