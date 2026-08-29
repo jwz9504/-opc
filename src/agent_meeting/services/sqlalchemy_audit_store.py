@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import json
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,7 @@ class SQLAlchemyAuditStore:
                 meeting_id, actor_id, action, details or{}
             )
 
-    def list(self, meeting_id: str) -> list[dict[str, Any]]:
+    def list(self, meeting_id: str) -> builtins.list[dict[str, Any]]:
         with self.session_factory() as session:
             rows = (
                 session.query(AuditModel)
@@ -44,6 +45,9 @@ class SQLAlchemyAuditStore:
                 }
                 for row in rows
             ]
+
+    def for_meeting(self, meeting_id: str) -> builtins.list[dict[str, Any]]:
+        return self.list(meeting_id)
 
     def close(self) -> None:
         self.engine.dispose()

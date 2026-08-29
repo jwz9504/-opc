@@ -9,10 +9,10 @@ from ..langgraph_workflow import build_sqlite_graph, run_graph
 from ..policies.selection_policy import select_proposal
 from ..services.artifact_events import ArtifactEventWriter
 from ..services.artifact_repository import ArtifactRepository
-from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
 from ..services.evidence_repository import EvidenceRepository
 from ..services.retrieval import StubRetrievalProvider
+from ..services.sqlalchemy_audit_store import SQLAlchemyAuditStore
 from ..services.sqlalchemy_report_store import SQLAlchemyReportStore
 from ..services.sqlalchemy_store import SQLAlchemyMeetingStore
 from ..services.sqlite_repository import SQLiteRepository
@@ -34,7 +34,7 @@ class MeetingService:
         self.orm_store = SQLAlchemyMeetingStore(self.repository.path)
         self.checkpointer = InMemoryCheckpointer()
         self.graph, self.graph_connection = build_sqlite_graph(str(self.repository.path))
-        self.audit = AuditRepository(self.repository.db)
+        self.audit = SQLAlchemyAuditStore(self.repository.path)
         self.reports = SQLAlchemyReportStore(self.repository.path)
         self.artifacts = ArtifactRepository(self.repository.db)
         self.artifact_writer = ArtifactEventWriter(self.artifacts)
