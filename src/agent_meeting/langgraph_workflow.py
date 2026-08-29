@@ -31,7 +31,7 @@ def _governance(state: GraphState) -> dict[str, Any]:
 def _work(state: GraphState) -> dict[str, Any]:
     thread_id = state.get("thread_id", "meeting")
     proposals = stub_ideation(thread_id)
-    return {"phase": "human_final_approval", "human_pending": True, "summaries": {"stub": "research_and_ideation_complete", "research": stub_research(thread_id), "proposals": [proposal.model_dump(mode="json") for proposal in proposals], "decision": {"status": "pending_human_selection", "candidate_ids": [proposal.envelope.artifact_id for proposal in proposals]}}}
+    return {"phase": "quality_gates", "human_pending": True, "summaries": {"stub": "research_and_ideation_complete", "research": stub_research(thread_id), "proposals": [proposal.model_dump(mode="json") for proposal in proposals], "decision": {"status": "pending_human_selection", "candidate_ids": [proposal.envelope.artifact_id for proposal in proposals]}, "critique": {"status": "open", "severity": "medium", "message": "确认风险缓解措施"}, "grounding": {"status": "pass", "findings": []}, "gates": {"factual": "pass", "feasibility": "unknown", "risk": "unknown"}}}
 
 
 def _final(state: GraphState) -> dict[str, Any]:
