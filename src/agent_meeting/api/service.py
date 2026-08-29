@@ -110,7 +110,7 @@ class MeetingService:
         if stored is not None:
             return stored
         proposals = state.summaries.get("proposals", [])
-        data: dict[str, object] = {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft", "执行摘要": f"会议当前阶段：{state.phase}", "推荐方案": "\n".join(f"- {p.get('title', '未命名')}: {p.get('rationale', '')}" for p in proposals if isinstance(p, dict)) or "暂无候选方案", "决策记录": str(state.summaries.get("decision", "待人工选择")), "结构化产物": self.artifacts.list_for_meeting(meeting_id)}
+        data: dict[str, object] = {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft", "执行摘要": f"会议当前阶段：{state.phase}", "推荐方案": "\n".join(f"- {p.get('title', '未命名')}: {p.get('rationale', '')}" for p in proposals if isinstance(p, dict)) or "暂无候选方案", "决策记录": str(state.summaries.get("decision", "待人工选择")), "风险与缓解": str(state.summaries.get("critique", "待红队评审")), "Grounding 校验": str(state.summaries.get("grounding", "待 Grounding 校验完成")), "专业门禁": str(state.summaries.get("gates", "待专业门禁")), "结构化产物": self.artifacts.list_for_meeting(meeting_id)}
         self.reports.save(meeting_id, data)
         self.audit.append(meeting_id, actor_id, "report_generated", {"status": data["status"]})
         return data
