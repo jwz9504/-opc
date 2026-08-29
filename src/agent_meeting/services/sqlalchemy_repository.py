@@ -6,7 +6,14 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .orm import ArtifactModel, MeetingModel, MeetingStateModel, RequestKeyModel
+from .orm import (
+    ArtifactModel,
+    AuditModel,
+    MeetingModel,
+    MeetingStateModel,
+    ReportModel,
+    RequestKeyModel,
+)
 
 
 class SQLAlchemyRepository:
@@ -40,6 +47,17 @@ class SQLAlchemyRepository:
 
     def get_artifact(self, artifact_id: str) -> ArtifactModel | None:
         return self.session.get(ArtifactModel, artifact_id)
+
+    def save_report(self, meeting_id: str, payload: dict[str, Any], markdown_path: str) -> None:
+        self.session.merge(ReportModel(meeting_id=meeting_id, payload=json.dumps(payload, ensure_ascii=False, sort_keys=True), markdown_path=markdown_path))
+        self.session.commit()
+
+    def get_report(self, meeting_id: str) -> ReportModel | None:
+        return self.session.get(ReportModel, meeting_id)
+
+    def append_audit(self, meeting_id: str, actor_id: str, action: str, details: dict[str, Any]) -> None:
+        self.session.add(AuditModel(meeting_id=meeting_id, actor_id=actor_id, action=action, details=json.dumps(details, ensure_ascii=False, sort_keys=True)))
+        self.session.commit()
 
     def list_artifacts(self) -> list[ArtifactModel]:
         return list(self.session.scalars(select(ArtifactModel).order_by(ArtifactModel.artifact_id)))
