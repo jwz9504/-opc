@@ -8,6 +8,7 @@
 
 ```powershell
 uv sync
+uv run alembic upgrade head
 $env:AGENT_MEETING_API_TOKEN="dev-token"
 uv run uvicorn agent_meeting.api.app:app --host 127.0.0.1 --port 8000
 ```
