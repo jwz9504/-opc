@@ -29,6 +29,7 @@ def health_details() -> dict[str, object]:
     return {"status": "ok", "environment": os.getenv("AGENT_MEETING_ENV", "dev"), "model_provider": os.getenv("AGENT_MEETING_MODEL_PROVIDER", "stub")}
 
 
+@app.post("/meetings")
 def create_meeting(payload: MeetingCreate, x_request_id: str = Header(...), authorization: str | None = Header(None)) -> MeetingView:
     require_token(authorization)
     return service.create(payload, x_request_id)
