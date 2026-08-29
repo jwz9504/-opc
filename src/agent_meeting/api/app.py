@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 
@@ -11,7 +13,7 @@ service = MeetingService()
 
 
 def require_token(authorization: str | None) -> None:
-    if authorization != "Bearer dev-token":
+    if authorization != f"Bearer {os.getenv('AGENT_MEETING_API_TOKEN', 'dev-token')}":
         raise HTTPException(status_code=401, detail="invalid or missing token")
 
 
