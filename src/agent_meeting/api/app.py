@@ -119,6 +119,7 @@ def download_report_json(meeting_id: str, actor_id: str, authorization: str | No
         raise HTTPException(status_code=403, detail="meeting access denied") from None
 
 
+@app.get("/meetings/{meeting_id}/audit")
 def get_audit(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> list[dict[str, object]]:
     require_token(authorization)
     try:
