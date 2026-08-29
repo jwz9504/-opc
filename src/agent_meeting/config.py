@@ -17,7 +17,10 @@ def report_path() -> Path:
 
 
 def api_token() -> str:
-    return os.getenv("AGENT_MEETING_API_TOKEN", "dev-token")
+    token = os.getenv("AGENT_MEETING_API_TOKEN", "dev-token")
+    if os.getenv("AGENT_MEETING_ENV", "dev") == "prod" and token == "dev-token":
+        raise RuntimeError("AGENT_MEETING_API_TOKEN must be set in prod")
+    return token
 
 
 def ensure_data_directories() -> None:
