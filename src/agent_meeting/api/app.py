@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 
-from .dto import MeetingCreate, MeetingView, ResumeRequest
+from .dto import MeetingCreate, MeetingView, ResumeRequest, SelectionRequest
 from .service import MeetingService
 
 app = FastAPI(title="Agent Meeting API", version="0.1.0")
@@ -58,7 +58,19 @@ def resume_meeting(meeting_id: str, payload: ResumeRequest, authorization: str |
         raise HTTPException(status_code=403, detail=str(exc)) from None
 
 
-@app.post("/meetings/{meeting_id}/cancel")
+@app.post("/meetings/{meeting_id}/select")
+def select_meeting_proposal(meeting_id: str, payload: SelectionRequest, authorization: str | None = Header(None)) -> MeetingView:
+    require_token(authorization)
+    try:
+        return service.select_proposal(meeting_id, payload)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="meeting not found") from None
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
 def cancel_meeting(meeting_id: str, actor_id: str, authorization: str | None = Header(None)) -> MeetingView:
     require_token(authorization)
     try:

@@ -6,6 +6,7 @@ from hashlib import sha256
 from langgraph.errors import GraphInterrupt
 
 from ..langgraph_workflow import build_sqlite_graph, run_graph
+from ..policies.selection_policy import select_proposal
 from ..services.artifact_events import ArtifactEventWriter
 from ..services.artifact_repository import ArtifactRepository
 from ..services.audit_repository import AuditRepository
@@ -13,7 +14,7 @@ from ..services.checkpoint import InMemoryCheckpointer
 from ..services.report_repository import ReportRepository
 from ..services.sqlite_repository import SQLiteRepository
 from ..state import MeetingState
-from .dto import MeetingCreate, MeetingView, ResumeRequest
+from .dto import MeetingCreate, MeetingView, ResumeRequest, SelectionRequest
 
 
 @dataclass
@@ -22,6 +23,7 @@ class Meeting:
     owner_id: str
     question: str
     resume_token: str
+
 
 class MeetingService:
     def __init__(self, repository: SQLiteRepository | None = None) -> None:
@@ -55,22 +57,12 @@ class MeetingService:
         self.audit.append(meeting_id, actor_id, "meeting_run", {"phase_before": self.view(meeting_id).phase})
         try:
             result = run_graph(self.graph, meeting_id)
-            updated = MeetingState(thread_id=meeting_id, phase=result.get("phase", "human_confirm_governance"), human_pending=result.get("human_pending", True), summaries=result.get("summaries",{}))
-            self._save_state(updated)
-            summaries = updated.summaries
-            if isinstance(summaries, dict):
-                research = summaries.get("research", [])
-                if isinstance(research, list):
-                    self.artifact_writer.write_research(meeting_id, [str(item) for item in research])
-                proposals = summaries.get("proposals", [])
-                if isinstance(proposals, list):
-                    self.artifact_writer.write_proposals([item for item in proposals if isinstance(item, dict)])
-        except (GraphInterrupt, KeyError, RuntimeError):
-            restored = self.repository.load_state(meeting_id)
-            if restored is None:
-                raise
-            updated = restored
+        except GraphInterrupt:
+            result = self.graph.get_state({"configurable": {"thread_id": meeting_id}}).values
+        updated = MeetingState(thread_id=meeting_id, phase=result.get("phase", "human_confirm_governance"), human_pending=result.get("human_pending", True), summaries=result.get("summaries",{}))
         self._save_state(updated)
+        self.artifact_writer.write_research(meeting_id, [str(x) for x in updated.summaries.get("research", [])])
+        self.artifact_writer.write_proposals([x for x in updated.summaries.get("proposals", []) if isinstance(x, dict)])
         return self.view(meeting_id)
 
     def resume(self, meeting_id: str, payload: ResumeRequest) -> MeetingView:
@@ -80,14 +72,23 @@ class MeetingService:
         state = self.checkpointer.get(meeting_id) or self.repository.load_state(meeting_id)
         if state is None:
             raise KeyError(meeting_id)
-        if state.phase == "human_confirm_governance":
-            result = run_graph(self.graph, meeting_id, payload.decision)
-        else:
-            result = run_graph(self.graph, meeting_id, "approve" if payload.decision == "confirm" else payload.decision)
-        new_state = MeetingState(thread_id=meeting_id, phase=result.get("phase", state.phase), human_pending=result.get("human_pending", False), summaries=result.get("summaries", state.summaries))
+        result = run_graph(self.graph, meeting_id, payload.decision)
+        values = self.graph.get_state({"configurable": {"thread_id": meeting_id}}).values if result is None else result
+        new_state = MeetingState(thread_id=meeting_id, phase=values.get("phase", state.phase), human_pending=values.get("human_pending", False), summaries=values.get("summaries", state.summaries))
+        self._save_state(new_state)
         action = "governance_confirmed" if state.phase == "human_confirm_governance" and payload.decision == "confirm" else f"human_{payload.decision}"
         self.audit.append(meeting_id, payload.actor_id, action, {"phase_before": state.phase})
-        self._save_state(new_state)
+        return self.view(meeting_id)
+
+    def select_proposal(self, meeting_id: str, payload: SelectionRequest) -> MeetingView:
+        meeting = self._authorized(meeting_id, payload.actor_id)
+        state = self.checkpointer.get(meeting_id) or self.repository.load_state(meeting_id)
+        if state is None:
+            raise KeyError(meeting_id)
+        summaries = select_proposal(state.summaries, payload.proposal_id, payload.rationale)
+        updated = state.model_copy(update={"summaries": summaries})
+        self._save_state(updated)
+        self.audit.append(meeting.meeting_id, payload.actor_id, "proposal_selected", summaries["decision"])
         return self.view(meeting_id)
 
     def cancel(self, meeting_id: str, actor_id: str) -> MeetingView:
@@ -108,21 +109,8 @@ class MeetingService:
         stored = self.reports.get(meeting_id)
         if stored is not None:
             return stored
-        data: dict[str, object] = {
-            "meeting_id": meeting_id,
-            "phase": state.phase,
-            "status": "final" if state.phase == "frozen_final" else "draft",
-            "执行摘要": f"会议当前阶段：{state.phase}",
-            "推荐方案": "\n".join(f"- {p.get('title', '未命名')}: {p.get('rationale', '')}" for p in state.summaries.get("proposals", []) if isinstance(p, dict)) or "暂无候选方案",
-            "实施步骤": "待执行专家展开",
-            "风险与缓解": "待红队评审",
-            "决策记录": str(state.summaries.get("decision", "待人工选择")),
-            "少数派意见": "暂无",
-            "行动项": "待人工指定",
-            "证据与引用附录": "待 Grounding 校验完成",
-            "会议审计摘要": "可通过审计接口查询",
-            "结构化产物": self.artifacts.list_for_meeting(meeting_id),
-        }
+        proposals = state.summaries.get("proposals", [])
+        data: dict[str, object] = {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft", "执行摘要": f"会议当前阶段：{state.phase}", "推荐方案": "\n".join(f"- {p.get('title', '未命名')}: {p.get('rationale', '')}" for p in proposals if isinstance(p, dict)) or "暂无候选方案", "决策记录": str(state.summaries.get("decision", "待人工选择")), "结构化产物": self.artifacts.list_for_meeting(meeting_id)}
         self.reports.save(meeting_id, data)
         self.audit.append(meeting_id, actor_id, "report_generated", {"status": data["status"]})
         return data

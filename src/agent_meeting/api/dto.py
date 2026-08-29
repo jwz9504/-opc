@@ -14,6 +14,11 @@ class ResumeRequest(BaseModel):
     actor_id: str
     token: str
 
+class SelectionRequest(BaseModel):
+    actor_id: str
+    proposal_id: str
+    rationale: str = Field(min_length=1)
+
 class MeetingView(BaseModel):
     meeting_id: str
     owner_id: str
