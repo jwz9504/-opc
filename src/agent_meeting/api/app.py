@@ -3,10 +3,13 @@ import os
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 
-from ..config import api_token
+from ..config import api_token, database_path, ensure_data_directories
+from ..services.migration import migrate
 from .dto import MeetingCreate, MeetingView, ResumeRequest, SelectionRequest
 from .service import MeetingService
 
+ensure_data_directories()
+migrate(database_path())
 app = FastAPI(title="Agent Meeting API", version="0.1.0")
 service = MeetingService()
 
