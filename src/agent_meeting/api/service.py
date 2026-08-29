@@ -6,6 +6,7 @@ from hashlib import sha256
 from langgraph.errors import GraphInterrupt
 
 from ..langgraph_workflow import build_sqlite_graph, run_graph
+from ..services.artifact_events import ArtifactEventWriter
 from ..services.artifact_repository import ArtifactRepository
 from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
@@ -30,6 +31,7 @@ class MeetingService:
         self.audit = AuditRepository(self.repository.db)
         self.reports = ReportRepository(self.repository.db)
         self.artifacts = ArtifactRepository(self.repository.db)
+        self.artifact_writer = ArtifactEventWriter(self.artifacts)
         self.meetings: dict[str, Meeting] ={}
         self.requests: dict[str, str] ={}
 
@@ -55,6 +57,14 @@ class MeetingService:
             result = run_graph(self.graph, meeting_id)
             updated = MeetingState(thread_id=meeting_id, phase=result.get("phase", "human_confirm_governance"), human_pending=result.get("human_pending", True), summaries=result.get("summaries",{}))
             self._save_state(updated)
+            summaries = updated.summaries
+            if isinstance(summaries, dict):
+                research = summaries.get("research", [])
+                if isinstance(research, list):
+                    self.artifact_writer.write_research(meeting_id, [str(item) for item in research])
+                proposals = summaries.get("proposals", [])
+                if isinstance(proposals, list):
+                    self.artifact_writer.write_proposals([item for item in proposals if isinstance(item, dict)])
         except (GraphInterrupt, KeyError, RuntimeError):
             restored = self.repository.load_state(meeting_id)
             if restored is None:
