@@ -11,7 +11,9 @@ from ..services.artifact_events import ArtifactEventWriter
 from ..services.artifact_repository import ArtifactRepository
 from ..services.audit_repository import AuditRepository
 from ..services.checkpoint import InMemoryCheckpointer
+from ..services.evidence_repository import EvidenceRepository
 from ..services.report_repository import ReportRepository
+from ..services.retrieval import StubRetrievalProvider
 from ..services.sqlite_repository import SQLiteRepository
 from ..state import MeetingState
 from .dto import MeetingCreate, MeetingView, ResumeRequest, SelectionRequest
@@ -34,6 +36,8 @@ class MeetingService:
         self.reports = ReportRepository(self.repository.db)
         self.artifacts = ArtifactRepository(self.repository.db)
         self.artifact_writer = ArtifactEventWriter(self.artifacts)
+        self.evidence = EvidenceRepository(self.repository.db)
+        self.retrieval = StubRetrievalProvider()
         self.meetings: dict[str, Meeting] ={}
         self.requests: dict[str, str] ={}
 
@@ -55,6 +59,8 @@ class MeetingService:
     def run(self, meeting_id: str, actor_id: str) -> MeetingView:
         self._authorized(meeting_id, actor_id)
         self.audit.append(meeting_id, actor_id, "meeting_run", {"phase_before": self.view(meeting_id).phase})
+        snapshots = self.retrieval.search(self._load_meeting(meeting_id).question)
+        self.evidence.save_results(meeting_id, snapshots)
         try:
             result = run_graph(self.graph, meeting_id)
         except GraphInterrupt:
@@ -110,7 +116,7 @@ class MeetingService:
         if stored is not None:
             return stored
         proposals = state.summaries.get("proposals", [])
-        data: dict[str, object] = {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft", "执行摘要": f"会议当前阶段：{state.phase}", "推荐方案": "\n".join(f"- {p.get('title', '未命名')}: {p.get('rationale', '')}" for p in proposals if isinstance(p, dict)) or "暂无候选方案", "决策记录": str(state.summaries.get("decision", "待人工选择")), "风险与缓解": str(state.summaries.get("critique", "待红队评审")), "Grounding 校验": str(state.summaries.get("grounding", "待 Grounding 校验完成")), "专业门禁": str(state.summaries.get("gates", "待专业门禁")), "结构化产物": self.artifacts.list_for_meeting(meeting_id)}
+        data: dict[str, object] = {"meeting_id": meeting_id, "phase": state.phase, "status": "final" if state.phase == "frozen_final" else "draft", "执行摘要": f"会议当前阶段：{state.phase}", "推荐方案": "\n".join(f"- {p.get('title', '未命名')}: {p.get('rationale', '')}" for p in proposals if isinstance(p, dict)) or "暂无候选方案", "决策记录": str(state.summaries.get("decision", "待人工选择")), "风险与缓解": str(state.summaries.get("critique", "待红队评审")), "Grounding 校验": str(state.summaries.get("grounding", "待 Grounding 校验完成")), "证据与引用附录": self.evidence.list_for_meeting(meeting_id), "结构化产物": self.artifacts.list_for_meeting(meeting_id)}
         self.reports.save(meeting_id, data)
         self.audit.append(meeting_id, actor_id, "report_generated", {"status": data["status"]})
         return data
