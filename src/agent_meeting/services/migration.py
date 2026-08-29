@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
+
+from alembic.config import Config
+
+from alembic import command
 
 
 def migrate(database: Path) -> None:
     database.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["alembic", "-x", f"db={database}", "upgrade", "head"], check=True)
+    config = Config(str(Path(__file__).parents[3] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database.as_posix()}")
+    command.upgrade(config, "head")
