@@ -8,6 +8,7 @@ import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = "http://127.0.0.1:8765"
+UV = str(Path.home() / ".local" / "bin" / "uv.exe")
 TOKEN = "dev-token"
 
 
@@ -22,7 +23,7 @@ def wait_ready() -> None:
 
 
 def main() -> None:
-    command = ["uv", "run", "uvicorn", "agent_meeting.api.app:app", "--host", "127.0.0.1", "--port", "8765"]
+    command = [UV, "run", "uvicorn", "agent_meeting.api.app:app", "--host", "127.0.0.1", "--port", "8765"]
     process = subprocess.Popen(command, cwd=ROOT)
     try:
         wait_ready()
@@ -33,7 +34,7 @@ def main() -> None:
         httpx.post(f"{BASE}/meetings/{meeting_id}/run?actor_id=blackbox", headers=headers).raise_for_status()
         process.terminate()
         process.wait(timeout=10)
-        command = ["uv", "run", "uvicorn", "agent_meeting.api.app:app", "--host", "127.0.0.1", "--port", "8765"]
+        command = [UV, "run", "uvicorn", "agent_meeting.api.app:app", "--host", "127.0.0.1", "--port", "8765"]
         process = subprocess.Popen(command, cwd=ROOT)
         wait_ready()
         restored = httpx.get(f"{BASE}/meetings/{meeting_id}?actor_id=blackbox", headers=headers)
